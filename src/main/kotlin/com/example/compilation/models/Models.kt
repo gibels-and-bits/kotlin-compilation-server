@@ -33,7 +33,14 @@ data class ExecuteResponse(
 @Serializable
 data class PrinterCommand(
     val type: String,
-    val params: Map<String, String> = emptyMap()
+    val text: String? = null,
+    val alignment: String? = null,
+    val bold: Boolean? = null,
+    val size: String? = null,
+    val underline: Boolean? = null,
+    val data: String? = null,
+    val qrSize: Int? = null,
+    val lines: Int? = null
 )
 
 @Serializable
@@ -59,19 +66,32 @@ sealed class InternalPrinterCommand {
     
     fun toSerializable(): PrinterCommand {
         return when (this) {
-            is AddText -> PrinterCommand("ADD_TEXT", mapOf("text" to text))
-            is AddTextStyle -> PrinterCommand("ADD_TEXT_STYLE", mapOf(
-                "bold" to bold.toString(),
-                "size" to size,
-                "underline" to underline.toString()
-            ))
-            is AddTextAlign -> PrinterCommand("ADD_TEXT_ALIGN", mapOf("alignment" to alignment))
-            is AddQRCode -> PrinterCommand("ADD_QR_CODE", mapOf(
-                "data" to data,
-                "size" to size.toString()
-            ))
-            is AddFeedLine -> PrinterCommand("ADD_FEED_LINE", mapOf("lines" to lines.toString()))
-            is CutPaper -> PrinterCommand("CUT_PAPER")
+            is AddText -> PrinterCommand(
+                type = "ADD_TEXT",
+                text = text
+            )
+            is AddTextStyle -> PrinterCommand(
+                type = "ADD_TEXT_STYLE",
+                bold = bold,
+                size = size,
+                underline = underline
+            )
+            is AddTextAlign -> PrinterCommand(
+                type = "ADD_TEXT_ALIGN",
+                alignment = alignment
+            )
+            is AddQRCode -> PrinterCommand(
+                type = "ADD_QR_CODE",
+                data = data,
+                qrSize = size
+            )
+            is AddFeedLine -> PrinterCommand(
+                type = "ADD_FEED_LINE",
+                lines = lines
+            )
+            is CutPaper -> PrinterCommand(
+                type = "CUT_PAPER"
+            )
         }
     }
 }
