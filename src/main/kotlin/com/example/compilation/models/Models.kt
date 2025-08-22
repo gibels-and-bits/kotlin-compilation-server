@@ -36,6 +36,18 @@ data class PrinterCommand(
     val params: Map<String, String> = emptyMap()
 )
 
+@Serializable
+data class CacheStatusResponse(
+    val cache_size: Int,
+    val teams: List<TeamCacheInfo>
+)
+
+@Serializable
+data class TeamCacheInfo(
+    val teamId: String,
+    val compiledAt: String
+)
+
 // Internal models for printer commands
 sealed class InternalPrinterCommand {
     data class AddText(val text: String) : InternalPrinterCommand()

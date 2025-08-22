@@ -114,9 +114,12 @@ fun Routing.configureRoutes(compilerService: KotlinCompilerService) {
     // Get cache status
     get("/cache/status") {
         val status = compilerService.getCacheStatus()
-        call.respond(HttpStatusCode.OK, mapOf(
-            "cache_size" to status.size,
-            "teams" to status
+        val teams = status.map { (teamId, info) ->
+            TeamCacheInfo(teamId, info)
+        }
+        call.respond(HttpStatusCode.OK, CacheStatusResponse(
+            cache_size = status.size,
+            teams = teams
         ))
     }
     
