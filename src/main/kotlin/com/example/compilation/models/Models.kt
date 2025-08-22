@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class CompileRequest(
     val teamId: String,
+    val teamName: String? = null,
     val code: String
 )
 

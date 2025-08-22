@@ -43,7 +43,7 @@ fun Routing.configureRoutes(compilerService: KotlinCompilerService) {
                 return@post
             }
             
-            val response = compilerService.compile(request.teamId, request.code)
+            val response = compilerService.compile(request.teamId, request.code, request.teamName)
             
             if (response.success) {
                 call.respond(HttpStatusCode.OK, response)
@@ -132,7 +132,7 @@ fun Routing.configureRoutes(compilerService: KotlinCompilerService) {
             // Compile and execute immediately without caching
             val testTeamId = "test_${System.currentTimeMillis()}"
             
-            val compileResponse = compilerService.compile(testTeamId, code)
+            val compileResponse = compilerService.compile(testTeamId, code, "Test Team")
             if (!compileResponse.success) {
                 call.respond(HttpStatusCode.BadRequest, compileResponse)
                 return@post
