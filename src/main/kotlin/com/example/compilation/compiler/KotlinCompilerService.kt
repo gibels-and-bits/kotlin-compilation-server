@@ -3,6 +3,8 @@ package com.example.compilation.compiler
 import com.example.compilation.cache.InterpreterCache
 import com.example.compilation.models.*
 import com.example.compilation.orders.OrderRepository
+import com.example.compilation.jobs.JobTracker
+import com.example.compilation.jobs.JobStatus
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
@@ -27,7 +29,10 @@ data class AndroidServerNotification(
     val error_message: String? = null
 )
 
-class KotlinCompilerService(private val cache: InterpreterCache) {
+class KotlinCompilerService(
+    private val cache: InterpreterCache,
+    private val jobTracker: JobTracker = JobTracker()
+) {
     private val logger = LoggerFactory.getLogger(KotlinCompilerService::class.java)
     private val scriptEngineManager = ScriptEngineManager()
     private val httpClient = HttpClient.newBuilder()
@@ -41,11 +46,18 @@ class KotlinCompilerService(private val cache: InterpreterCache) {
         if (System.getProperty("debug") == "true") "http://localhost:8080" else "http://192.168.29.2:8080"
     
     fun compile(teamId: String, code: String, teamName: String? = null): CompileResponse {
+        // Track job received
+        jobTracker.trackJobReceived(teamId, teamName)
+        
         return try {
             logger.info("Compiling interpreter for team: $teamId")
             
+            // Update job status to compiling
+            jobTracker.updateJobStatus(teamId, JobStatus.COMPILING)
+            
             // Validate the code structure - now requires Order parameter
             if (!code.contains("fun interpret") || !code.contains("jsonString") || !code.contains("printer") || !code.contains("order")) {
+                jobTracker.updateJobStatus(teamId, JobStatus.FAILED, "Invalid interpreter code")
                 return CompileResponse(
                     success = false,
                     error = "Invalid interpreter code. Must define: fun interpret(jsonString: String, printer: EpsonPrinter, order: Order?)"
@@ -54,10 +66,13 @@ class KotlinCompilerService(private val cache: InterpreterCache) {
             
             // Get Kotlin script engine
             val engine = scriptEngineManager.getEngineByExtension("kts")
-                ?: return CompileResponse(
-                    success = false,
-                    error = "Kotlin script engine not available"
-                )
+                ?: run {
+                    jobTracker.updateJobStatus(teamId, JobStatus.FAILED, "Kotlin script engine not available")
+                    return CompileResponse(
+                        success = false,
+                        error = "Kotlin script engine not available"
+                    )
+                }
             
             // Wrap the interpreter code with necessary imports and structure
             val wrappedCode = wrapInterpreterCode(code)
@@ -70,6 +85,9 @@ class KotlinCompilerService(private val cache: InterpreterCache) {
             cache.put(teamId, code, compiledScript)
             
             logger.info("Successfully compiled interpreter for team: $teamId")
+            
+            // Update job status to success
+            jobTracker.updateJobStatus(teamId, JobStatus.SUCCESS)
             
             // Notify Android server of successful compilation
             notifyAndroidServer(teamId, teamName ?: teamId, "success", null)
@@ -99,6 +117,9 @@ class KotlinCompilerService(private val cache: InterpreterCache) {
                 }
                 else -> e.message ?: "Compilation failed"
             }
+            
+            // Update job status to failed
+            jobTracker.updateJobStatus(teamId, JobStatus.FAILED, errorMessage)
             
             // Notify Android server of failed compilation
             notifyAndroidServer(teamId, teamName ?: teamId, "failed", errorMessage)
@@ -191,6 +212,10 @@ class KotlinCompilerService(private val cache: InterpreterCache) {
             "Compiled at: ${java.time.Instant.ofEpochMilli(cached.compiledAt)}"
         }
     }
+    
+    fun getJobs() = jobTracker.getJobs()
+    
+    fun getRecentJobs(limit: Int = 20) = jobTracker.getRecentJobs(limit)
     
     private fun wrapInterpreterCode(code: String): String {
         return """

@@ -30,6 +30,9 @@ bin/
 *.log
 logs/
 
+# ASCII receipts
+receipts/
+
 # Local environment files
 .env
 .env.local

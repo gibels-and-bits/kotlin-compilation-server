@@ -1,0 +1,22 @@
+================================================
+              RECEIPT PRINTER TEST
+================================================
+
+        Welcome to the Hackathon!
+        
+        This is a test receipt to verify
+        your system is working correctly.
+        
+        Round 0: System Check
+        
+        Your pipeline should work as:
+        1. Design in UI
+        2. Generate JSON
+        3. Interpret with Kotlin
+        4. Print receipt
+        
+================================================
+        
+        Good luck teams!
+        
+================================================

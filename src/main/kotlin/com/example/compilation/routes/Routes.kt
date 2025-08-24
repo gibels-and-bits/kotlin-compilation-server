@@ -13,6 +13,11 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
 
+// ANSI color codes for console output
+private const val CYAN = "\u001B[36m"
+private const val GREEN = "\u001B[32m"
+private const val NC = "\u001B[0m" // No Color
+
 fun Routing.configureRoutes(compilerService: KotlinCompilerService) {
     
     // Health check
@@ -99,13 +104,16 @@ fun Routing.configureRoutes(compilerService: KotlinCompilerService) {
                         }
                     }
                     
-                    // Save ASCII receipt
-                    val asciiFile = "/tmp/ascii-receipt-${request.teamId}.txt"
+                    // Create receipts directory if it doesn't exist
+                    val receiptsDir = File("receipts")
+                    if (!receiptsDir.exists()) {
+                        receiptsDir.mkdirs()
+                    }
+                    
+                    // Save ASCII receipt to file in receipts directory
+                    val asciiFile = "receipts/ascii-receipt-${request.teamId}.txt"
                     asciiPrinter.renderToFile(asciiFile)
                     application.log.info("ASCII receipt saved to: $asciiFile")
-                    
-                    // Log the receipt content for the monitor
-                    application.log.info("Receipt Preview:\n${asciiPrinter.renderToString()}")
                 }
             }
             
@@ -157,6 +165,15 @@ fun Routing.configureRoutes(compilerService: KotlinCompilerService) {
         call.respond(HttpStatusCode.OK, CacheStatusResponse(
             cache_size = status.size,
             teams = teams
+        ))
+    }
+    
+    // Get compilation jobs
+    get("/jobs") {
+        val jobs = compilerService.getRecentJobs(50)
+        call.respond(HttpStatusCode.OK, mapOf(
+            "jobs" to jobs,
+            "count" to jobs.size
         ))
     }
     

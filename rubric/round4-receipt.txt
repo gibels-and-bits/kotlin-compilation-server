@@ -1,0 +1,59 @@
+================================================
+            TECH TREATS
+             Store #004
+================================================
+Order #D-9999            Date: 12/04/2024
+
+------------------------------------------------
+PLATINUM MEMBER:
+  Ada Lovelace (CUST-1337)
+  Loyalty Points: 3,847
+  Member Since: 2018-01-01
+
+------------------------------------------------
+ORDER ITEMS:
+
+== MAINS ==
+Quantum Quiche                  x2      $25.98
+  @ $12.99 each
+  ** Tech Tuesday Special         -$5.00 **
+
+RAM Ramen                        x1      $14.99
+
+== DESSERTS ==
+Binary Brownie                   x3      $13.50
+  @ $4.50 each
+  ** Sweet Deal                   -$2.00 **
+
+== BEVERAGES ==
+Cloud Coffee                     x2      $11.98
+  @ $5.99 each
+
+------------------------------------------------
+Item Subtotal:                         $66.45
+Item Discounts:                        -$7.00
+
+ORDER PROMOTIONS:
+  Member Appreciation (10%)             -$5.95
+  App Order Discount                    -$3.00
+
+------------------------------------------------
+Subtotal after all discounts:          $50.50
+Tax (9.0%):                             $4.55
+------------------------------------------------
+TOTAL:                                 $55.05
+
+Payment: APPLE PAY
+
+------------------------------------------------
+REWARDS SUMMARY:
+  Points Earned: 55
+  New Balance: 3,902
+  Next Reward: 98 points away
+
+================================================
+
+     Thanks for being PLATINUM, Ada!
+    Your tech treats are on their way!
+
+================================================

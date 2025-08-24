@@ -92,7 +92,7 @@ object OrderRepository {
             subtotal = 28.97,
             taxRate = 0.0875,
             taxAmount = 2.53,
-            totalAmount = 28.50, // After promotions
+            totalAmount = 26.50, // After promotions
             itemPromotions = listOf(
                 ItemPromotion(
                     itemSku = "COFF-002",
@@ -201,8 +201,8 @@ object OrderRepository {
             ),
             subtotal = 66.45,
             taxRate = 0.09,
-            taxAmount = 5.98,
-            totalAmount = 65.43, // After all discounts
+            taxAmount = 4.55,
+            totalAmount = 55.05, // After all discounts
             itemPromotions = listOf(
                 ItemPromotion(
                     itemSku = "TECH-001",
@@ -238,78 +238,116 @@ object OrderRepository {
         )
     }
     
-    // Round 5: Final challenge with special requirements
+    // Round 5: Final challenge - Split payment and complex layout
     private fun createRound5Order(): Order {
         return Order(
-            orderId = "FINAL-2024",
-            storeNumber = "999",
-            storeName = "HACKATHON HEROES",
+            orderId = "SPLIT-8847",
+            storeNumber = "777",
+            storeName = "THE FINAL FEAST",
             timestamp = System.currentTimeMillis(),
             items = listOf(
                 OrderItem(
-                    name = "Victory Burger",
-                    quantity = 10,
-                    unitPrice = 15.99,
-                    totalPrice = 159.90,
-                    sku = "HERO-001",
-                    category = "CELEBRATION"
-                ),
-                OrderItem(
-                    name = "Champion Chips",
-                    quantity = 10,
-                    unitPrice = 4.99,
-                    totalPrice = 49.90,
-                    sku = "HERO-002",
-                    category = "SIDES"
-                ),
-                OrderItem(
-                    name = "Winner's Soda",
-                    quantity = 10,
-                    unitPrice = 2.99,
-                    totalPrice = 29.90,
-                    sku = "HERO-003",
-                    category = "BEVERAGES"
-                ),
-                OrderItem(
-                    name = "Trophy Cake",
+                    name = "Wagyu Steak",
                     quantity = 1,
-                    unitPrice = 45.00,
-                    totalPrice = 45.00,
-                    sku = "HERO-004",
-                    category = "DESSERTS"
+                    unitPrice = 89.99,
+                    totalPrice = 89.99,
+                    sku = "LUX-001",
+                    category = "ENTREES",
+                    modifiers = listOf("Medium Rare", "Extra Butter", "Side: Mashed Potatoes")
+                ),
+                OrderItem(
+                    name = "Lobster Risotto",
+                    quantity = 1,
+                    unitPrice = 45.99,
+                    totalPrice = 45.99,
+                    sku = "LUX-002",
+                    category = "ENTREES",
+                    modifiers = listOf("Extra Parmesan", "Side: Asparagus")
+                ),
+                OrderItem(
+                    name = "Caesar Salad",
+                    quantity = 2,
+                    unitPrice = 12.99,
+                    totalPrice = 25.98,
+                    sku = "APP-001",
+                    category = "APPETIZERS",
+                    modifiers = listOf("No Anchovies", "Extra Croutons")
+                ),
+                OrderItem(
+                    name = "Truffle Fries",
+                    quantity = 1,
+                    unitPrice = 18.99,
+                    totalPrice = 18.99,
+                    sku = "APP-002",
+                    category = "APPETIZERS"
+                ),
+                OrderItem(
+                    name = "Chocolate Soufflé",
+                    quantity = 2,
+                    unitPrice = 14.99,
+                    totalPrice = 29.98,
+                    sku = "DES-001",
+                    category = "DESSERTS",
+                    modifiers = listOf("Extra Vanilla Ice Cream")
+                ),
+                OrderItem(
+                    name = "Vintage Wine",
+                    quantity = 1,
+                    unitPrice = 125.00,
+                    totalPrice = 125.00,
+                    sku = "WINE-001",
+                    category = "BEVERAGES",
+                    modifiers = listOf("2019 Cabernet Sauvignon")
                 )
             ),
-            subtotal = 284.70,
-            taxRate = 0.10,
-            taxAmount = 28.47,
-            totalAmount = 250.00, // Special event pricing
+            subtotal = 335.93,
+            taxRate = 0.095,
+            taxAmount = 31.91,
+            totalAmount = 362.84,
             itemPromotions = listOf(
                 ItemPromotion(
-                    itemSku = "HERO-001",
-                    promotionName = "Bulk Order Discount",
-                    discountAmount = 40.00
-                )
-            ),
-            orderPromotions = listOf(
-                OrderPromotion(
-                    promotionName = "Hackathon Special",
-                    discountAmount = 20.0,
-                    promotionType = "PERCENTAGE"
-                ),
-                OrderPromotion(
-                    promotionName = "Event Celebration",
-                    discountAmount = 23.17,
-                    promotionType = "FIXED"
+                    itemSku = "DES-001",
+                    promotionName = "Dessert Happy Hour",
+                    discountAmount = 5.00
                 )
             ),
             customerInfo = CustomerInfo(
-                customerId = "TEAM-WINNER",
-                name = "Winning Team",
-                memberStatus = "CHAMPION",
-                loyaltyPoints = 10000,
-                memberSince = "2024-01-01"
+                customerId = "GROUP-4452",
+                name = "Table 12 - Chen Party",
+                memberStatus = "VIP",
+                loyaltyPoints = 15420,
+                memberSince = "2020-03-15"
             ),
-            paymentMethod = "CORPORATE CARD"
+            paymentMethod = "SPLIT",
+            splitPayments = listOf(
+                SplitPayment(
+                    payerName = "Alice Chen",
+                    amount = 156.43,
+                    method = "VISA ****7823",
+                    tip = 25.00,
+                    items = listOf("Wagyu Steak", "Truffle Fries")
+                ),
+                SplitPayment(
+                    payerName = "Bob Martinez",
+                    amount = 89.54,
+                    method = "MASTERCARD ****9921",
+                    tip = 15.00,
+                    items = listOf("Lobster Risotto", "Caesar Salad (1)")
+                ),
+                SplitPayment(
+                    payerName = "Carol Wu",
+                    amount = 121.87,
+                    method = "AMEX ****3345",
+                    tip = 20.00,
+                    items = listOf("Vintage Wine", "Caesar Salad (1)", "Chocolate Soufflé (2)")
+                )
+            ),
+            tableInfo = TableInfo(
+                tableNumber = "12",
+                serverName = "Jennifer K.",
+                guestCount = 3,
+                serviceRating = 5
+            )
         )
     }
 }

@@ -71,7 +71,9 @@ data class Order(
     val itemPromotions: List<ItemPromotion> = emptyList(),
     val orderPromotions: List<OrderPromotion> = emptyList(),
     val customerInfo: CustomerInfo? = null,
-    val paymentMethod: String? = null
+    val paymentMethod: String? = null,
+    val splitPayments: List<SplitPayment> = emptyList(),
+    val tableInfo: TableInfo? = null
 )
 
 @Serializable
@@ -81,7 +83,8 @@ data class OrderItem(
     val unitPrice: Double,
     val totalPrice: Double,
     val sku: String? = null,
-    val category: String? = null
+    val category: String? = null,
+    val modifiers: List<String> = emptyList()
 )
 
 @Serializable
@@ -105,6 +108,23 @@ data class CustomerInfo(
     val memberStatus: String? = null,
     val loyaltyPoints: Int = 0,
     val memberSince: String? = null
+)
+
+@Serializable
+data class SplitPayment(
+    val payerName: String,
+    val amount: Double,
+    val method: String,
+    val tip: Double = 0.0,
+    val items: List<String> = emptyList()
+)
+
+@Serializable
+data class TableInfo(
+    val tableNumber: String,
+    val serverName: String,
+    val guestCount: Int,
+    val serviceRating: Int? = null
 )
 
 // Internal models for printer commands

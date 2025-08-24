@@ -1,0 +1,44 @@
+================================================
+            PIZZA PALACE
+             Store #003
+================================================
+Order #C-2024            Date: 12/04/2024
+
+------------------------------------------------
+CUSTOMER INFORMATION:
+  Name: John Doe
+  Member Status: GOLD
+  Customer ID: CUST-8826
+  Loyalty Points: 1,247
+  Member Since: 2019-03-15
+
+------------------------------------------------
+ITEMS:
+
+Large Pepperoni Pizza           x1      $18.99
+
+Garlic Breadsticks              x2      $13.98
+  @ $6.99 each
+
+2-Liter Soda                    x1       $3.99
+
+------------------------------------------------
+Subtotal:                              $36.96
+Tax (8.0%):                             $2.96
+------------------------------------------------
+TOTAL:                                 $39.92
+
+Payment Method: VISA ****1234
+
+------------------------------------------------
+LOYALTY REWARDS:
+  Points Earned Today: 40
+  Total Points: 1,287
+  Status: GOLD Member
+
+================================================
+
+    Thank you for being a loyal customer!
+         See you again soon!
+
+================================================

@@ -1,0 +1,96 @@
+================================================
+          THE FINAL FEAST
+            Store #777
+================================================
+Order #SPLIT-8847        Date: 12/04/2024
+Table: 12                Server: Jennifer K.
+Guests: 3                Rating: ★★★★★
+
+------------------------------------------------
+VIP GROUP: Table 12 - Chen Party
+Customer ID: GROUP-4452
+Loyalty Points: 15,420
+Member Since: 2020-03-15
+
+------------------------------------------------
+ORDER DETAILS:
+
+ENTREES:
+Wagyu Steak                      x1     $89.99
+  - Medium Rare
+  - Extra Butter
+  - Side: Mashed Potatoes
+
+Lobster Risotto                  x1     $45.99
+  - Extra Parmesan
+  - Side: Asparagus
+
+APPETIZERS:
+Caesar Salad                     x2     $25.98
+  @ $12.99 each
+  - No Anchovies
+  - Extra Croutons
+
+Truffle Fries                    x1     $18.99
+
+DESSERTS:
+Chocolate Soufflé                x2     $29.98
+  @ $14.99 each
+  - Extra Vanilla Ice Cream
+  ** Dessert Happy Hour           -$5.00 **
+
+BEVERAGES:
+Vintage Wine                     x1    $125.00
+  - 2019 Cabernet Sauvignon
+
+------------------------------------------------
+Subtotal:                             $335.93
+Discounts:                             -$5.00
+Tax (9.5%):                            $31.91
+------------------------------------------------
+TOTAL:                                $362.84
+
+================================================
+           SPLIT PAYMENT DETAILS
+================================================
+
+ALICE CHEN                            $156.43
+  Paying for:
+    - Wagyu Steak
+    - Truffle Fries
+  Tip: $25.00
+  Total: $181.43
+  Method: VISA ****7823
+
+------------------------------------------------
+BOB MARTINEZ                           $89.54
+  Paying for:
+    - Lobster Risotto
+    - Caesar Salad (1)
+  Tip: $15.00
+  Total: $104.54
+  Method: MASTERCARD ****9921
+
+------------------------------------------------
+CAROL WU                              $116.87
+  Paying for:
+    - Vintage Wine
+    - Caesar Salad (1)
+    - Chocolate Soufflé (2)
+  Tip: $20.00
+  Total: $136.87
+  Method: AMEX ****3345
+
+================================================
+PAYMENT SUMMARY:
+  Subtotal: $362.84
+  Tips: $60.00
+  Grand Total: $422.84
+
+================================================
+
+    Thank you for dining at The Final Feast!
+         Your VIP status has been noted.
+        We hope to see you again soon!
+
+================================================
