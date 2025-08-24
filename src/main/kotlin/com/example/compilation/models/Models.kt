@@ -20,7 +20,8 @@ data class CompileResponse(
 @Serializable
 data class ExecuteRequest(
     val teamId: String,
-    val jsonData: String
+    val jsonData: String,
+    val round: Int = 0
 )
 
 @Serializable
@@ -55,12 +56,64 @@ data class TeamCacheInfo(
     val compiledAt: String
 )
 
+// Order data models
+@Serializable
+data class Order(
+    val orderId: String,
+    val storeNumber: String,
+    val storeName: String,
+    val timestamp: Long,
+    val items: List<OrderItem>,
+    val subtotal: Double,
+    val taxRate: Double,
+    val taxAmount: Double,
+    val totalAmount: Double,
+    val itemPromotions: List<ItemPromotion> = emptyList(),
+    val orderPromotions: List<OrderPromotion> = emptyList(),
+    val customerInfo: CustomerInfo? = null,
+    val paymentMethod: String? = null
+)
+
+@Serializable
+data class OrderItem(
+    val name: String,
+    val quantity: Int,
+    val unitPrice: Double,
+    val totalPrice: Double,
+    val sku: String? = null,
+    val category: String? = null
+)
+
+@Serializable
+data class ItemPromotion(
+    val itemSku: String,
+    val promotionName: String,
+    val discountAmount: Double
+)
+
+@Serializable
+data class OrderPromotion(
+    val promotionName: String,
+    val discountAmount: Double,
+    val promotionType: String // "PERCENTAGE" or "FIXED"
+)
+
+@Serializable
+data class CustomerInfo(
+    val customerId: String,
+    val name: String,
+    val memberStatus: String? = null,
+    val loyaltyPoints: Int = 0,
+    val memberSince: String? = null
+)
+
 // Internal models for printer commands
 sealed class InternalPrinterCommand {
     data class AddText(val text: String) : InternalPrinterCommand()
     data class AddTextStyle(val bold: Boolean, val size: String, val underline: Boolean) : InternalPrinterCommand()
     data class AddTextAlign(val alignment: String) : InternalPrinterCommand()
     data class AddQRCode(val data: String, val size: Int) : InternalPrinterCommand()
+    data class AddBarcode(val data: String, val type: String) : InternalPrinterCommand()
     data class AddFeedLine(val lines: Int) : InternalPrinterCommand()
     object CutPaper : InternalPrinterCommand()
     
@@ -84,6 +137,11 @@ sealed class InternalPrinterCommand {
                 type = "ADD_QR_CODE",
                 data = data,
                 qrSize = size
+            )
+            is AddBarcode -> PrinterCommand(
+                type = "ADD_BARCODE",
+                data = data,
+                text = type // Using text field for barcode type
             )
             is AddFeedLine -> PrinterCommand(
                 type = "ADD_FEED_LINE",

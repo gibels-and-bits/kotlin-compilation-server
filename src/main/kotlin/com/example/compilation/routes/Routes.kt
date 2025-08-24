@@ -70,7 +70,7 @@ fun Routing.configureRoutes(compilerService: KotlinCompilerService) {
                 return@post
             }
             
-            val response = compilerService.execute(request.teamId, request.jsonData)
+            val response = compilerService.execute(request.teamId, request.jsonData, request.round)
             
             if (response.success) {
                 call.respond(HttpStatusCode.OK, response)

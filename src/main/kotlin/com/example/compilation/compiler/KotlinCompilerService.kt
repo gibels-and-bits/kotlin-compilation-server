@@ -2,6 +2,7 @@ package com.example.compilation.compiler
 
 import com.example.compilation.cache.InterpreterCache
 import com.example.compilation.models.*
+import com.example.compilation.orders.OrderRepository
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
@@ -36,17 +37,18 @@ class KotlinCompilerService(private val cache: InterpreterCache) {
         ignoreUnknownKeys = true
         isLenient = true
     }
-    private val androidServerUrl = "http://192.168.29.2:8080"
+    private val androidServerUrl = System.getenv("ANDROID_SERVER_URL") ?: 
+        if (System.getProperty("debug") == "true") "http://localhost:8080" else "http://192.168.29.2:8080"
     
     fun compile(teamId: String, code: String, teamName: String? = null): CompileResponse {
         return try {
             logger.info("Compiling interpreter for team: $teamId")
             
-            // Validate the code structure
-            if (!code.contains("fun interpret") || !code.contains("jsonString") || !code.contains("printer")) {
+            // Validate the code structure - now requires Order parameter
+            if (!code.contains("fun interpret") || !code.contains("jsonString") || !code.contains("printer") || !code.contains("order")) {
                 return CompileResponse(
                     success = false,
-                    error = "Invalid interpreter code. Must define: fun interpret(jsonString: String, printer: EpsonPrinter)"
+                    error = "Invalid interpreter code. Must define: fun interpret(jsonString: String, printer: EpsonPrinter, order: Order?)"
                 )
             }
             
@@ -109,15 +111,19 @@ class KotlinCompilerService(private val cache: InterpreterCache) {
         }
     }
     
-    fun execute(teamId: String, jsonData: String): ExecuteResponse {
+    fun execute(teamId: String, jsonData: String, round: Int = 0): ExecuteResponse {
         return try {
-            logger.info("Executing interpreter for team: $teamId")
+            logger.info("Executing interpreter for team: $teamId, round: $round")
             
             val cachedInterpreter = cache.get(teamId)
                 ?: return ExecuteResponse(
                     success = false,
                     error = "No compiled interpreter found for team $teamId. Please submit interpreter first."
                 )
+            
+            // Get order for this round
+            val order = OrderRepository.getOrderForRound(round)
+            logger.info("Using order for round $round: ${order?.orderId ?: "no order"}")
             
             // Create command capture printer
             val printer = CommandCapturePrinter()
@@ -126,6 +132,7 @@ class KotlinCompilerService(private val cache: InterpreterCache) {
             val bindings = SimpleBindings().apply {
                 put("printer", printer)
                 put("jsonString", jsonData)
+                put("order", order)
             }
             
             // Execute with timeout
@@ -136,13 +143,28 @@ class KotlinCompilerService(private val cache: InterpreterCache) {
             }
             
             // Get captured commands
-            val commands = printer.getCommands().map { it.toSerializable() }
+            val userCommands = printer.getCommands()
             
-            logger.info("Successfully executed interpreter for team $teamId, captured ${commands.size} commands")
+            // Prepend header with team and round info
+            val headerCommands = mutableListOf<InternalPrinterCommand>()
+            headerCommands.add(InternalPrinterCommand.AddTextAlign("CENTER"))
+            headerCommands.add(InternalPrinterCommand.AddText("═══════════════════════"))
+            headerCommands.add(InternalPrinterCommand.AddTextStyle(true, "LARGE", false))
+            headerCommands.add(InternalPrinterCommand.AddText("TEAM: $teamId"))
+            headerCommands.add(InternalPrinterCommand.AddTextStyle(true, "NORMAL", false))
+            headerCommands.add(InternalPrinterCommand.AddText("ROUND: $round"))
+            headerCommands.add(InternalPrinterCommand.AddText("═══════════════════════"))
+            headerCommands.add(InternalPrinterCommand.AddFeedLine(1))
+            headerCommands.add(InternalPrinterCommand.AddTextAlign("LEFT"))
+            
+            // Combine header and user commands
+            val allCommands = (headerCommands + userCommands).map { it.toSerializable() }
+            
+            logger.info("Successfully executed interpreter for team $teamId, captured ${allCommands.size} commands")
             
             ExecuteResponse(
                 success = true,
-                commands = commands
+                commands = allCommands
             )
             
         } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
@@ -173,6 +195,7 @@ class KotlinCompilerService(private val cache: InterpreterCache) {
     private fun wrapInterpreterCode(code: String): String {
         return """
             import com.example.compilation.compiler.*
+            import com.example.compilation.models.*
             import org.json.JSONObject
             import org.json.JSONArray
             import kotlin.math.*
@@ -180,13 +203,14 @@ class KotlinCompilerService(private val cache: InterpreterCache) {
             // Get bindings
             val printer = bindings["printer"] as com.example.compilation.compiler.EpsonPrinter
             val jsonString = bindings["jsonString"] as String
+            val order = bindings["order"] as? com.example.compilation.models.Order
             
             // User's interpreter code
             $code
             
             // Execute the interpret function
             try {
-                interpret(jsonString, printer)
+                interpret(jsonString, printer, order)
             } catch (e: Exception) {
                 throw RuntimeException("Interpreter execution failed: " + e.message, e)
             }

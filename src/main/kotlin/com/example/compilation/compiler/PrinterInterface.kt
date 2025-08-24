@@ -5,8 +5,10 @@ import com.example.compilation.models.InternalPrinterCommand
 // Mirror of the EpsonPrinter interface from Android
 interface EpsonPrinter {
     fun addText(text: String)
+    fun addText(text: String, style: TextStyle?)
     fun addTextStyle(style: TextStyle)
     fun addTextAlign(alignment: Alignment)
+    fun addBarcode(data: String, type: BarcodeType, options: BarcodeOptions? = null)
     fun addQRCode(data: String, options: QRCodeOptions? = null)
     fun addFeedLine(lines: Int)
     fun cutPaper()
@@ -36,15 +38,54 @@ enum class QRErrorCorrection {
     L, M, Q, H
 }
 
+enum class BarcodeType {
+    UPC_A, UPC_E, EAN13, EAN8,
+    CODE39, ITF, CODABAR, CODE93, CODE128,
+    GS1_128, GS1_DATABAR_OMNIDIRECTIONAL,
+    GS1_DATABAR_TRUNCATED, GS1_DATABAR_LIMITED,
+    GS1_DATABAR_EXPANDED
+}
+
+data class BarcodeOptions(
+    val width: BarcodeWidth = BarcodeWidth.MEDIUM,
+    val height: Int = 50,
+    val hri: Boolean = true
+)
+
+enum class BarcodeWidth {
+    THIN, MEDIUM, THICK
+}
+
 // Command capture implementation
 class CommandCapturePrinter : EpsonPrinter {
     private val commands = mutableListOf<InternalPrinterCommand>()
+    private var currentStyle: TextStyle = TextStyle()
+    private var currentAlignment: Alignment = Alignment.LEFT
     
     override fun addText(text: String) {
+        // Apply current style and alignment
+        if (currentAlignment != Alignment.LEFT) {
+            commands.add(InternalPrinterCommand.AddTextAlign(currentAlignment.name))
+        }
+        if (currentStyle != TextStyle()) {
+            commands.add(InternalPrinterCommand.AddTextStyle(
+                bold = currentStyle.bold,
+                size = currentStyle.size.name,
+                underline = currentStyle.underline
+            ))
+        }
         commands.add(InternalPrinterCommand.AddText(text))
     }
     
+    override fun addText(text: String, style: TextStyle?) {
+        if (style != null) {
+            addTextStyle(style)
+        }
+        addText(text)
+    }
+    
     override fun addTextStyle(style: TextStyle) {
+        currentStyle = style
         commands.add(InternalPrinterCommand.AddTextStyle(
             bold = style.bold,
             size = style.size.name,
@@ -53,7 +94,15 @@ class CommandCapturePrinter : EpsonPrinter {
     }
     
     override fun addTextAlign(alignment: Alignment) {
+        currentAlignment = alignment
         commands.add(InternalPrinterCommand.AddTextAlign(alignment.name))
+    }
+    
+    override fun addBarcode(data: String, type: BarcodeType, options: BarcodeOptions?) {
+        commands.add(InternalPrinterCommand.AddBarcode(
+            data = data,
+            type = type.name
+        ))
     }
     
     override fun addQRCode(data: String, options: QRCodeOptions?) {
