@@ -20,9 +20,17 @@ fi
 # Configuration
 if [ "$DEBUG_MODE" = true ]; then
     SERVER_URL="http://localhost:3001"
-    ANDROID_SERVER="http://localhost:8080"
     SERVER_LABEL="DEBUG MODE"
     JAVA_OPTS="-Ddebug=true"
+    
+    # Prompt for Android server IP in debug mode
+    echo -e "${CYAN}Enter Android server IP (or press Enter for localhost:8080):${NC}"
+    read -r ANDROID_IP
+    if [ -z "$ANDROID_IP" ]; then
+        ANDROID_SERVER="http://localhost:8080"
+    else
+        ANDROID_SERVER="http://$ANDROID_IP:8080"
+    fi
 else
     SERVER_URL="http://192.168.29.3:3001"
     ANDROID_SERVER="http://192.168.29.2:8080"
@@ -88,10 +96,23 @@ echo -e "${GREEN}Distribution created${NC}"
 echo -e "${YELLOW}Starting server...${NC}"
 echo -e "${BLUE}Server URL: $SERVER_URL${NC}"
 echo -e "${BLUE}Android Server: $ANDROID_SERVER${NC}"
+
+# Check if Android server is available
+ANDROID_STATUS="ONLINE"
+if ! curl -s "$ANDROID_SERVER/health" --max-time 2 > /dev/null 2>&1; then
+    ANDROID_STATUS="OFFLINE"
+    echo -e "${YELLOW}Android server not available - ASCII printer mode enabled${NC}"
+    export ANDROID_OFFLINE=true
+fi
+
 echo ""
 
 # Start server in background
-java $JAVA_OPTS -cp "build/install/kotlin-compilation-server/lib/*" com.example.compilation.ApplicationKt > /tmp/kotlin-server.log 2>&1 &
+if [ "$ANDROID_STATUS" = "OFFLINE" ]; then
+    ANDROID_OFFLINE=true java $JAVA_OPTS -cp "build/install/kotlin-compilation-server/lib/*" com.example.compilation.ApplicationKt > /tmp/kotlin-server.log 2>&1 &
+else
+    java $JAVA_OPTS -cp "build/install/kotlin-compilation-server/lib/*" com.example.compilation.ApplicationKt > /tmp/kotlin-server.log 2>&1 &
+fi
 SERVER_PID=$!
 
 # Wait for server to start
@@ -115,10 +136,107 @@ echo -e "${GREEN}Server Monitor Active - Press Ctrl+C to stop everything${NC}"
 echo -e "${CYAN}═══════════════════════════════════════════════════════${NC}"
 echo ""
 
+# ASCII Printer Simulator
+ASCII_RECEIPT="/tmp/ascii-receipt.txt"
+ASCII_WIDTH=40  # Standard receipt width
+
+# Function to render ASCII receipt
+render_ascii_receipt() {
+    local commands="$1"
+    local output=""
+    local current_align="LEFT"
+    local current_bold=false
+    local current_size="NORMAL"
+    
+    # Clear receipt file
+    > "$ASCII_RECEIPT"
+    
+    # Process each command
+    echo "$commands" | jq -c '.[]' 2>/dev/null | while IFS= read -r cmd; do
+        local type=$(echo "$cmd" | jq -r '.type // ""')
+        
+        case "$type" in
+            "ADD_TEXT")
+                local text=$(echo "$cmd" | jq -r '.text // ""')
+                local line=""
+                
+                # Apply alignment
+                case "$current_align" in
+                    "CENTER")
+                        local padding=$(( (ASCII_WIDTH - ${#text}) / 2 ))
+                        [ $padding -gt 0 ] && line=$(printf "%*s" $padding "")
+                        line="${line}${text}"
+                        ;;
+                    "RIGHT")
+                        line=$(printf "%*s" $ASCII_WIDTH "$text")
+                        ;;
+                    *)
+                        line="$text"
+                        ;;
+                esac
+                
+                # Apply size (double height for large)
+                if [ "$current_size" = "LARGE" ]; then
+                    echo "$line" >> "$ASCII_RECEIPT"
+                    echo "$line" >> "$ASCII_RECEIPT"
+                else
+                    echo "$line" >> "$ASCII_RECEIPT"
+                fi
+                ;;
+                
+            "ADD_TEXT_STYLE")
+                current_bold=$(echo "$cmd" | jq -r '.bold // false')
+                current_size=$(echo "$cmd" | jq -r '.size // "NORMAL"')
+                ;;
+                
+            "ADD_TEXT_ALIGN")
+                current_align=$(echo "$cmd" | jq -r '.alignment // "LEFT"')
+                ;;
+                
+            "ADD_QR_CODE")
+                local data=$(echo "$cmd" | jq -r '.data // ""')
+                echo "┌────────────────────────┐" >> "$ASCII_RECEIPT"
+                echo "│  [QR: ${data:0:18}...]  │" >> "$ASCII_RECEIPT"
+                echo "│  ████ ▄▄▄▄▄ ██▄ ████  │" >> "$ASCII_RECEIPT"
+                echo "│  ████ █   █ ███ ████  │" >> "$ASCII_RECEIPT"
+                echo "│  ████ █▄▄▄█ ▄▄█ ████  │" >> "$ASCII_RECEIPT"
+                echo "└────────────────────────┘" >> "$ASCII_RECEIPT"
+                ;;
+                
+            "ADD_BARCODE")
+                local data=$(echo "$cmd" | jq -r '.data // ""')
+                echo "║║║║║║║║║║║║║║║║║║║║║║║║" >> "$ASCII_RECEIPT"
+                echo "    $data    " >> "$ASCII_RECEIPT"
+                ;;
+                
+            "ADD_FEED_LINE")
+                local lines=$(echo "$cmd" | jq -r '.lines // 1')
+                for ((i=0; i<lines; i++)); do
+                    echo "" >> "$ASCII_RECEIPT"
+                done
+                ;;
+                
+            "CUT_PAPER")
+                echo "" >> "$ASCII_RECEIPT"
+                echo "════════════════════════════════════════" >> "$ASCII_RECEIPT"
+                echo "         ✂ CUT HERE ✂" >> "$ASCII_RECEIPT"
+                echo "════════════════════════════════════════" >> "$ASCII_RECEIPT"
+                ;;
+        esac
+    done
+}
+
 # Monitor function
 monitor_server() {
     local last_cache_count=-1
     local last_status=""
+    local last_log_line=""
+    local android_available=false
+    
+    # Check if Android server is available
+    if curl -s "$ANDROID_SERVER/health" --max-time 2 > /dev/null 2>&1; then
+        android_available=true
+    fi
     
     while true; do
         # Clear screen and show header
@@ -129,75 +247,113 @@ monitor_server() {
         echo -e "${CYAN}╚════════════════════════════════════════════════════╝${NC}"
         echo ""
         echo -e "${BLUE}Time: $(date '+%Y-%m-%d %H:%M:%S')${NC}"
-        echo -e "${BLUE}Server: $SERVER_URL${NC}"
         echo ""
         
-        # Check health
+        # Server Status Section
+        echo -e "${CYAN}Server Status:${NC}"
+        echo -e "${CYAN}─────────────────────────────────────────${NC}"
+        
+        # Check Compilation Server
         if HEALTH=$(curl -s "$SERVER_URL/health" 2>/dev/null); then
-            # Parse health response
             STATUS=$(echo "$HEALTH" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
             CACHE_SIZE=$(echo "$HEALTH" | grep -o '"cache_size":[0-9]*' | cut -d':' -f2)
             
-            # Show status
             if [ "$STATUS" = "healthy" ]; then
-                echo -e "${GREEN}● Server Status: HEALTHY${NC}"
+                echo -e "${GREEN}● Compilation Server: ONLINE${NC} - $SERVER_URL"
             else
-                echo -e "${RED}● Server Status: $STATUS${NC}"
+                echo -e "${RED}● Compilation Server: $STATUS${NC} - $SERVER_URL"
             fi
-            
-            echo -e "${BLUE}● Cached Interpreters: $CACHE_SIZE${NC}"
-            echo ""
-            
-            # Get detailed cache status
-            if CACHE_STATUS=$(curl -s "$SERVER_URL/cache/status" 2>/dev/null); then
-                echo -e "${CYAN}Cached Teams:${NC}"
-                echo -e "${CYAN}─────────────────────────────────────────${NC}"
-                
-                # Parse and display teams
-                echo "$CACHE_STATUS" | grep -o '"teamId":"[^"]*"' | cut -d'"' -f4 | while read -r team; do
-                    if [ ! -z "$team" ]; then
-                        COMPILED_AT=$(echo "$CACHE_STATUS" | grep -A1 "\"$team\"" | grep "compiledAt" | cut -d'"' -f4)
-                        echo -e "  ${GREEN}✓${NC} $team"
-                        if [ ! -z "$COMPILED_AT" ]; then
-                            echo -e "    ${CYAN}└─ $COMPILED_AT${NC}"
-                        fi
-                    fi
-                done
-                
-                # If no teams
-                if [ "$CACHE_SIZE" = "0" ] || [ -z "$CACHE_SIZE" ]; then
-                    echo -e "  ${YELLOW}No interpreters cached yet${NC}"
-                fi
-            fi
-            
-            # Show event if cache count changed
-            if [ "$CACHE_SIZE" != "$last_cache_count" ] && [ "$last_cache_count" != "-1" ]; then
-                echo ""
-                echo -e "${YELLOW}▶ Cache updated: $last_cache_count → $CACHE_SIZE interpreters${NC}"
-            fi
-            last_cache_count=$CACHE_SIZE
-            
+            echo -e "  ${BLUE}Cached Interpreters: $CACHE_SIZE${NC}"
         else
-            echo -e "${RED}● Server Status: OFFLINE${NC}"
-            echo -e "${RED}Cannot connect to server at $SERVER_URL${NC}"
+            echo -e "${RED}● Compilation Server: OFFLINE${NC} - $SERVER_URL"
+            CACHE_SIZE=0
         fi
         
-        # Show log tail
+        # Check Android Server
+        if curl -s "$ANDROID_SERVER/health" --max-time 2 > /dev/null 2>&1; then
+            echo -e "${GREEN}● Android Server: ONLINE${NC} - $ANDROID_SERVER"
+            android_available=true
+        else
+            echo -e "${YELLOW}● Android Server: OFFLINE${NC} - $ANDROID_SERVER"
+            echo -e "  ${CYAN}ASCII Printer Mode Active${NC}"
+            android_available=false
+        fi
+        
+        echo ""
+        
+        # Get detailed cache status
+        if CACHE_STATUS=$(curl -s "$SERVER_URL/cache/status" 2>/dev/null); then
+            echo -e "${CYAN}Cached Teams:${NC}"
+            echo -e "${CYAN}─────────────────────────────────────────${NC}"
+            
+            # Parse and display teams
+            echo "$CACHE_STATUS" | grep -o '"teamId":"[^"]*"' | cut -d'"' -f4 | while read -r team; do
+                if [ ! -z "$team" ]; then
+                    COMPILED_AT=$(echo "$CACHE_STATUS" | grep -A1 "\"$team\"" | grep "compiledAt" | cut -d'"' -f4)
+                    echo -e "  ${GREEN}✓${NC} $team"
+                    if [ ! -z "$COMPILED_AT" ]; then
+                        echo -e "    ${CYAN}└─ Compiled: ${COMPILED_AT:11:8}${NC}"
+                    fi
+                fi
+            done
+            
+            # If no teams
+            if [ "$CACHE_SIZE" = "0" ] || [ -z "$CACHE_SIZE" ]; then
+                echo -e "  ${YELLOW}No interpreters cached yet${NC}"
+            fi
+        fi
+        
+        # Activity Log Section
         echo ""
         echo -e "${CYAN}Recent Activity:${NC}"
         echo -e "${CYAN}─────────────────────────────────────────${NC}"
+        
         if [ -f /tmp/kotlin-server.log ]; then
-            tail -n 5 /tmp/kotlin-server.log | while IFS= read -r line; do
-                if echo "$line" | grep -q "ERROR"; then
-                    echo -e "${RED}$line${NC}"
-                elif echo "$line" | grep -q "WARN"; then
-                    echo -e "${YELLOW}$line${NC}"
-                elif echo "$line" | grep -q "INFO.*Compiling\|Successfully"; then
-                    echo -e "${GREEN}$line${NC}"
-                else
-                    echo "$line"
+            # Parse log for compilation and execution events
+            tail -n 10 /tmp/kotlin-server.log | while IFS= read -r line; do
+                if echo "$line" | grep -q "Compiling code for team"; then
+                    TEAM=$(echo "$line" | grep -o 'team [^ ]*' | cut -d' ' -f2)
+                    echo -e "${YELLOW}▶ Compiling: Team $TEAM${NC}"
+                elif echo "$line" | grep -q "Successfully compiled"; then
+                    TEAM=$(echo "$line" | grep -o 'team [^ ]*' | cut -d' ' -f2)
+                    echo -e "${GREEN}✓ Compiled: Team $TEAM${NC}"
+                elif echo "$line" | grep -q "Compilation failed"; then
+                    echo -e "${RED}✗ Compilation Failed${NC}"
+                elif echo "$line" | grep -q "Executing interpreter for team"; then
+                    TEAM=$(echo "$line" | grep -o 'team [^ ]*' | cut -d' ' -f2)
+                    echo -e "${BLUE}▶ Printing: Team $TEAM${NC}"
+                    
+                    # If Android is offline, capture and show ASCII receipt
+                    if [ "$android_available" = false ]; then
+                        # Wait a moment for execution to complete
+                        sleep 0.5
+                        
+                        # Try to get the last execution response from log
+                        LAST_EXEC=$(tail -n 20 /tmp/kotlin-server.log | grep -A10 "Generated.*commands" | tail -n 1)
+                        if [ ! -z "$LAST_EXEC" ]; then
+                            # Extract JSON commands and render ASCII
+                            COMMANDS=$(echo "$LAST_EXEC" | sed 's/.*Generated//' | sed 's/commands.*/]/')
+                            if [ ! -z "$COMMANDS" ]; then
+                                render_ascii_receipt "$COMMANDS"
+                            fi
+                        fi
+                    fi
+                elif echo "$line" | grep -q "ERROR"; then
+                    echo -e "${RED}✗ Error: $(echo "$line" | sed 's/.*ERROR//')${NC}"
                 fi
             done
+        fi
+        
+        # ASCII Receipt Display (if Android offline)
+        if [ "$android_available" = false ] && [ -f "$ASCII_RECEIPT" ] && [ -s "$ASCII_RECEIPT" ]; then
+            echo ""
+            echo -e "${CYAN}ASCII Receipt Preview:${NC}"
+            echo -e "${CYAN}┌────────────────────────────────────────┐${NC}"
+            tail -n 15 "$ASCII_RECEIPT" | while IFS= read -r line; do
+                printf "${CYAN}│${NC} %-38s ${CYAN}│${NC}\n" "${line:0:38}"
+            done
+            echo -e "${CYAN}└────────────────────────────────────────┘${NC}"
+            echo -e "  ${YELLOW}(Showing last 15 lines)${NC}"
         fi
         
         # Footer

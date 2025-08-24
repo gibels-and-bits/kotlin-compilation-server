@@ -7,9 +7,11 @@ import io.ktor.server.response.*
 import io.ktor.http.*
 import com.example.compilation.compiler.KotlinCompilerService
 import com.example.compilation.models.*
+import com.example.compilation.printer.ASCIIPrinter
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import java.io.File
 
 fun Routing.configureRoutes(compilerService: KotlinCompilerService) {
     
@@ -71,6 +73,41 @@ fun Routing.configureRoutes(compilerService: KotlinCompilerService) {
             }
             
             val response = compilerService.execute(request.teamId, request.jsonData, request.round)
+            
+            // If execution succeeded and we have commands, optionally render ASCII
+            if (response.success && response.commands != null) {
+                // Check if Android server is unavailable (could be a config flag)
+                val androidOffline = System.getenv("ANDROID_OFFLINE") == "true" || 
+                                   System.getProperty("android.offline") == "true"
+                
+                if (androidOffline) {
+                    // Render ASCII receipt for debugging
+                    val asciiPrinter = ASCIIPrinter()
+                    response.commands.forEach { cmd ->
+                        when (cmd.type) {
+                            "ADD_TEXT" -> asciiPrinter.addText(cmd.text ?: "")
+                            "ADD_TEXT_STYLE" -> asciiPrinter.addTextStyle(
+                                cmd.bold ?: false,
+                                cmd.size ?: "NORMAL",
+                                cmd.underline ?: false
+                            )
+                            "ADD_TEXT_ALIGN" -> asciiPrinter.addTextAlign(cmd.alignment ?: "LEFT")
+                            "ADD_QR_CODE" -> asciiPrinter.addQRCode(cmd.data ?: "", cmd.qrSize ?: 3)
+                            "ADD_BARCODE" -> asciiPrinter.addBarcode(cmd.data ?: "", cmd.text ?: "CODE128")
+                            "ADD_FEED_LINE" -> asciiPrinter.addFeedLine(cmd.lines ?: 1)
+                            "CUT_PAPER" -> asciiPrinter.cutPaper()
+                        }
+                    }
+                    
+                    // Save ASCII receipt
+                    val asciiFile = "/tmp/ascii-receipt-${request.teamId}.txt"
+                    asciiPrinter.renderToFile(asciiFile)
+                    application.log.info("ASCII receipt saved to: $asciiFile")
+                    
+                    // Log the receipt content for the monitor
+                    application.log.info("Receipt Preview:\n${asciiPrinter.renderToString()}")
+                }
+            }
             
             if (response.success) {
                 call.respond(HttpStatusCode.OK, response)
