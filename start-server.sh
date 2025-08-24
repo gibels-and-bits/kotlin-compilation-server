@@ -13,9 +13,18 @@ NC='\033[0m' # No Color
 
 # Parse arguments
 DEBUG_MODE=false
-if [[ "$1" == "--debug" ]]; then
-    DEBUG_MODE=true
-fi
+GUI_MODE=false
+
+for arg in "$@"; do
+    case $arg in
+        --debug)
+            DEBUG_MODE=true
+            ;;
+        --gui)
+            GUI_MODE=true
+            ;;
+    esac
+done
 
 # Configuration
 if [ "$DEBUG_MODE" = true ]; then
@@ -40,6 +49,12 @@ fi
 
 # Cleanup function
 cleanup() {
+    # Kill HTTP server if running
+    if [ ! -z "$HTTP_SERVER_PID" ]; then
+        echo -e "${YELLOW}Stopping HTTP server...${NC}"
+        kill $HTTP_SERVER_PID 2>/dev/null
+    fi
+    
     echo -e "\n${YELLOW}Shutting down...${NC}"
     
     # Kill the server process if it exists
@@ -129,14 +144,51 @@ for i in {1..10}; do
     sleep 1
 done
 
-# Step 5: Start the CLI monitor
-echo ""
-echo -e "${CYAN}═══════════════════════════════════════════════════════${NC}"
-echo -e "${GREEN}Server Monitor Active - Press Ctrl+C to stop everything${NC}"
-echo -e "${CYAN}═══════════════════════════════════════════════════════${NC}"
-echo ""
-
-# ASCII Printer Simulator
+# Step 5: Start the monitor
+if [ "$GUI_MODE" = true ]; then
+    # GUI Mode - Open HTML monitor
+    echo ""
+    echo -e "${CYAN}═══════════════════════════════════════════════════════${NC}"
+    echo -e "${GREEN}Opening HTML Monitor in Browser${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════════════════${NC}"
+    echo ""
+    
+    # Start the log server for the monitor
+    cd "$(dirname "$0")"
+    python3 log-server.py > /dev/null 2>&1 &
+    HTTP_SERVER_PID=$!
+    
+    # Open browser
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        open "http://localhost:8888/monitor.html"
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        xdg-open "http://localhost:8888/monitor.html" 2>/dev/null || echo "Please open http://localhost:8888/monitor.html in your browser"
+    fi
+    
+    echo -e "${BLUE}Monitor URL: http://localhost:8888/monitor.html${NC}"
+    echo -e "${YELLOW}Server running. Press Ctrl+C to stop.${NC}"
+    echo ""
+    
+    # Keep running
+    while true; do
+        sleep 1
+    done
+else
+    # CLI Mode - Production style monitoring
+    echo ""
+    echo -e "${CYAN}═══════════════════════════════════════════════════════${NC}"
+    echo -e "${GREEN}Server Monitor Active - Press Ctrl+C to stop everything${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════════════════${NC}"
+    echo ""
+    
+    if [ "$DEBUG_MODE" = false ]; then
+        # Production mode - Simple live log
+        monitor_production
+    else
+        # Debug mode - Full CLI monitor
+        monitor_server
+    fi
+fi
 ASCII_RECEIPT="/tmp/ascii-receipt.txt"
 ASCII_WIDTH=40  # Standard receipt width
 
@@ -389,5 +441,49 @@ monitor_server() {
     done
 }
 
-# Start monitoring
-monitor_server
+# Production monitoring function - simple and clean
+monitor_production() {
+    echo -e "${CYAN}Kotlin Compilation Server - Production Mode${NC}"
+    echo -e "${CYAN}────────────────────────────────────────────${NC}"
+    echo -e "Server: ${BLUE}$SERVER_URL${NC}"
+    echo -e "Android: ${BLUE}$ANDROID_SERVER${NC}"
+    echo ""
+    
+    # Check initial status
+    if curl -s "$ANDROID_SERVER/health" --max-time 2 > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ Android Server: ONLINE${NC}"
+    else
+        echo -e "${RED}✗ Android Server: OFFLINE${NC}"
+    fi
+    echo ""
+    echo -e "${CYAN}Live Activity Log:${NC}"
+    echo -e "${CYAN}────────────────────────────────────────────${NC}"
+    
+    # Tail the log and filter for important events
+    tail -f /tmp/kotlin-server.log | while IFS= read -r line; do
+        # Extract timestamp if present
+        timestamp=$(echo "$line" | grep -o '^[0-9]\{2\}:[0-9]\{2\}:[0-9]\{2\}' || true)
+        
+        if echo "$line" | grep -q "KotlinCompilerService.*Compiling interpreter for team:"; then
+            team=$(echo "$line" | sed 's/.*team: //')
+            echo -e "${YELLOW}[$timestamp] COMPILE ${NC} Team: ${BLUE}$team${NC}"
+        elif echo "$line" | grep -q "KotlinCompilerService.*Successfully compiled"; then
+            team=$(echo "$line" | sed 's/.*team: //')
+            echo -e "${GREEN}[$timestamp] SUCCESS ${NC} Team: ${BLUE}$team${NC} ✓"
+        elif echo "$line" | grep -q "KotlinCompilerService.*Failed to compile"; then
+            team=$(echo "$line" | sed 's/.*team //' | cut -d',' -f1)
+            echo -e "${RED}[$timestamp] FAILED  ${NC} Team: ${BLUE}$team${NC} ✗"
+        elif echo "$line" | grep -q "KotlinCompilerService.*Executing interpreter"; then
+            team=$(echo "$line" | sed 's/.*team: //' | cut -d',' -f1)
+            round=$(echo "$line" | sed 's/.*round: //')
+            echo -e "${CYAN}[$timestamp] EXECUTE ${NC} Team: ${BLUE}$team${NC} Round: $round"
+        elif echo "$line" | grep -q "KotlinCompilerService.*Successfully executed"; then
+            team=$(echo "$line" | sed 's/.*team //' | cut -d',' -f1)
+            cmds=$(echo "$line" | sed 's/.*captured //' | cut -d' ' -f1)
+            echo -e "${GREEN}[$timestamp] PRINTED ${NC} Team: ${BLUE}$team${NC} ($cmds commands)"
+        elif echo "$line" | grep -q "ERROR.*KotlinCompilerService"; then
+            msg=$(echo "$line" | sed 's/.*ERROR[^-]*- //')
+            echo -e "${RED}[$timestamp] ERROR   ${NC} ${msg:0:60}..."
+        fi
+    done
+}

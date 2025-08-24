@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kotlin Compilation Server Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .status-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease;
+        }
+        
+        .status-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .status-card h2 {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-online {
+            background: #4ade80;
+            box-shadow: 0 0 10px #4ade80;
+        }
+        
+        .status-offline {
+            background: #f87171;
+            box-shadow: 0 0 10px #f87171;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .teams-list {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            margin-bottom: 30px;
+        }
+        
+        .team-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.3s ease;
+        }
+        
+        .team-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .activity-log {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .activity-log h2 {
+            margin-bottom: 15px;
+            position: sticky;
+            top: 0;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 0;
+        }
+        
+        .log-entry {
+            padding: 8px;
+            margin: 5px 0;
+            border-left: 3px solid #666;
+            background: rgba(255, 255, 255, 0.05);
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+        }
+        
+        .log-entry.compile {
+            border-left-color: #fbbf24;
+        }
+        
+        .log-entry.success {
+            border-left-color: #4ade80;
+        }
+        
+        .log-entry.error {
+            border-left-color: #f87171;
+        }
+        
+        .log-entry.execute {
+            border-left-color: #60a5fa;
+        }
+        
+        .log-entry:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(5px);
+        }
+        
+        .timestamp {
+            color: #94a3b8;
+            font-size: 0.85em;
+        }
+        
+        .team-name {
+            color: #fde047;
+            font-weight: bold;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #fde047;
+        }
+        
+        .stat-label {
+            font-size: 0.9em;
+            color: #cbd5e1;
+            margin-top: 5px;
+        }
+        
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 5px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Kotlin Compilation Server Monitor</h1>
+            <p id="currentTime">Loading...</p>
+        </div>
+        
+        <div class="status-grid">
+            <div class="status-card">
+                <h2>
+                    <span class="status-indicator" id="compilationStatus"></span>
+                    Compilation Server
+                </h2>
+                <div id="compilationInfo">
+                    <p>URL: <span id="serverUrl">-</span></p>
+                    <p>Status: <span id="serverStatus">-</span></p>
+                    <p>Cached Teams: <span id="cacheSize">0</span></p>
+                </div>
+            </div>
+            
+            <div class="status-card">
+                <h2>
+                    <span class="status-indicator" id="androidStatus"></span>
+                    Android Server
+                </h2>
+                <div id="androidInfo">
+                    <p>URL: <span id="androidUrl">-</span></p>
+                    <p>Status: <span id="androidState">-</span></p>
+                    <p>Mode: <span id="printerMode">-</span></p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-value" id="totalCompilations">0</div>
+                <div class="stat-label">Total Compilations</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="successRate">0%</div>
+                <div class="stat-label">Success Rate</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="totalExecutions">0</div>
+                <div class="stat-label">Total Executions</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="activeTeams">0</div>
+                <div class="stat-label">Active Teams</div>
+            </div>
+        </div>
+        
+        <div class="teams-list">
+            <h2>📦 Cached Teams</h2>
+            <div id="teamsList">
+                <p style="text-align: center; color: #94a3b8;">No teams cached yet...</p>
+            </div>
+        </div>
+        
+        <div class="activity-log">
+            <h2>📊 Live Activity</h2>
+            <div id="activityLog">
+                <p style="text-align: center; color: #94a3b8;">Waiting for activity...</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let stats = {
+            compilations: 0,
+            successes: 0,
+            executions: 0,
+            teams: new Set()
+        };
+        
+        // Update time
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('currentTime').textContent = 
+                now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
+        }
+        
+        // Update server status
+        async function updateServerStatus() {
+            try {
+                const response = await fetch('http://localhost:3001/health');
+                const data = await response.json();
+                
+                document.getElementById('compilationStatus').className = 'status-indicator status-online';
+                document.getElementById('serverUrl').textContent = 'localhost:3001';
+                document.getElementById('serverStatus').textContent = 'ONLINE';
+                document.getElementById('cacheSize').textContent = data.cache_size || 0;
+                
+                // Update cache info
+                await updateCacheStatus();
+            } catch (error) {
+                document.getElementById('compilationStatus').className = 'status-indicator status-offline';
+                document.getElementById('serverStatus').textContent = 'OFFLINE';
+            }
+            
+            // Check Android server
+            try {
+                const response = await fetch('http://localhost:8080/health');
+                document.getElementById('androidStatus').className = 'status-indicator status-online';
+                document.getElementById('androidUrl').textContent = 'localhost:8080';
+                document.getElementById('androidState').textContent = 'ONLINE';
+                document.getElementById('printerMode').textContent = 'Physical Printer';
+            } catch (error) {
+                document.getElementById('androidStatus').className = 'status-indicator status-offline';
+                document.getElementById('androidUrl').textContent = 'localhost:8080';
+                document.getElementById('androidState').textContent = 'OFFLINE';
+                document.getElementById('printerMode').textContent = 'ASCII Mode';
+            }
+        }
+        
+        // Update cache status
+        async function updateCacheStatus() {
+            try {
+                const response = await fetch('http://localhost:3001/cache/status');
+                const data = await response.json();
+                
+                const teamsList = document.getElementById('teamsList');
+                if (data.teams && data.teams.length > 0) {
+                    teamsList.innerHTML = data.teams.map(team => `
+                        <div class="team-item">
+                            <span>✅ ${team.teamId}</span>
+                            <span class="timestamp">${new Date(team.compiledAt).toLocaleTimeString()}</span>
+                        </div>
+                    `).join('');
+                    
+                    document.getElementById('activeTeams').textContent = data.teams.length;
+                } else {
+                    teamsList.innerHTML = '<p style="text-align: center; color: #94a3b8;">No teams cached yet...</p>';
+                }
+            } catch (error) {
+                console.error('Failed to fetch cache status:', error);
+            }
+        }
+        
+        // Parse log and update activity
+        let lastLogSize = 0;
+        async function updateActivityLog() {
+            try {
+                const response = await fetch('http://localhost:8888/api/logs');
+                const logs = await response.text();
+                
+                // Only process new content
+                if (logs.length <= lastLogSize) return;
+                
+                const newContent = logs.substring(lastLogSize);
+                lastLogSize = logs.length;
+                const lines = newContent.split('\n');
+                
+                const activityLog = document.getElementById('activityLog');
+                const relevantLogs = [];
+                
+                lines.forEach(line => {
+                    if (line.includes('KotlinCompilerService')) {
+                        const timestamp = line.match(/\d{2}:\d{2}:\d{2}/)?.[0] || '';
+                        let entry = null;
+                        
+                        if (line.includes('Compiling interpreter for team:')) {
+                            const team = line.split('team:')[1]?.trim();
+                            entry = `<div class="log-entry compile">
+                                <span class="timestamp">${timestamp}</span> 
+                                🔨 Compiling: <span class="team-name">${team}</span>
+                            </div>`;
+                            stats.compilations++;
+                            stats.teams.add(team);
+                        } else if (line.includes('Successfully compiled')) {
+                            const team = line.split('team:')[1]?.trim();
+                            entry = `<div class="log-entry success">
+                                <span class="timestamp">${timestamp}</span> 
+                                ✅ Compiled: <span class="team-name">${team}</span>
+                            </div>`;
+                            stats.successes++;
+                        } else if (line.includes('Failed to compile')) {
+                            entry = `<div class="log-entry error">
+                                <span class="timestamp">${timestamp}</span> 
+                                ❌ Compilation failed
+                            </div>`;
+                        } else if (line.includes('Executing interpreter')) {
+                            const team = line.match(/team: ([^,]+)/)?.[1];
+                            const round = line.match(/round: (\d+)/)?.[1];
+                            entry = `<div class="log-entry execute">
+                                <span class="timestamp">${timestamp}</span> 
+                                🖨️ Executing: <span class="team-name">${team}</span> (Round ${round})
+                            </div>`;
+                            stats.executions++;
+                        }
+                        
+                        if (entry) {
+                            relevantLogs.push(entry);
+                        }
+                    }
+                });
+                
+                if (relevantLogs.length > 0) {
+                    if (activityLog.innerHTML.includes('Waiting for activity')) {
+                        activityLog.innerHTML = '';
+                    }
+                    activityLog.innerHTML = relevantLogs.join('') + activityLog.innerHTML;
+                    
+                    // Keep only last 50 entries
+                    const entries = activityLog.querySelectorAll('.log-entry');
+                    if (entries.length > 50) {
+                        for (let i = 50; i < entries.length; i++) {
+                            entries[i].remove();
+                        }
+                    }
+                }
+                
+                // Update stats
+                updateStats();
+            } catch (error) {
+                // Fallback to reading from file if API not available
+                console.log('Log API not available, using fallback');
+            }
+        }
+        
+        function updateStats() {
+            document.getElementById('totalCompilations').textContent = stats.compilations;
+            document.getElementById('totalExecutions').textContent = stats.executions;
+            document.getElementById('activeTeams').textContent = stats.teams.size;
+            
+            const rate = stats.compilations > 0 
+                ? Math.round((stats.successes / stats.compilations) * 100) 
+                : 0;
+            document.getElementById('successRate').textContent = rate + '%';
+        }
+        
+        // Initialize
+        updateTime();
+        updateServerStatus();
+        setInterval(updateTime, 1000);
+        setInterval(updateServerStatus, 2000);
+        setInterval(updateActivityLog, 1000);
+    </script>
+</body>
+</html>
