@@ -88,7 +88,7 @@ fun Routing.configureRoutes(compilerService: KotlinCompilerService) {
                 if (androidOffline) {
                     // Render ASCII receipt for debugging
                     val asciiPrinter = ASCIIPrinter()
-                    response.commands.forEach { cmd ->
+                    response.commands?.forEach { cmd ->
                         when (cmd.type) {
                             "ADD_TEXT" -> asciiPrinter.addText(cmd.text ?: "")
                             "ADD_TEXT_STYLE" -> asciiPrinter.addTextStyle(

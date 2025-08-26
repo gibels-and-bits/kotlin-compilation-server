@@ -16,11 +16,15 @@ class ASCIIPrinter {
     
     fun addText(text: String) {
         commands.add(AddText(text))
-        processText(text)
+        // Only process text if it's not empty
+        if (text.isNotEmpty()) {
+            processText(text)
+        }
     }
     
     fun addTextStyle(bold: Boolean, size: String, underline: Boolean) {
         commands.add(AddTextStyle(bold, size, underline))
+        // Update the current style state
         currentBold = bold
         currentSize = size
         currentUnderline = underline
@@ -28,6 +32,7 @@ class ASCIIPrinter {
     
     fun addTextAlign(alignment: String) {
         commands.add(AddTextAlign(alignment))
+        // Update the current alignment state
         currentAlignment = alignment
     }
     

@@ -63,25 +63,22 @@ class CommandCapturePrinter : EpsonPrinter {
     private var currentAlignment: Alignment = Alignment.LEFT
     
     override fun addText(text: String) {
-        // Apply current style and alignment
-        if (currentAlignment != Alignment.LEFT) {
-            commands.add(InternalPrinterCommand.AddTextAlign(currentAlignment.name))
-        }
-        if (currentStyle != TextStyle()) {
-            commands.add(InternalPrinterCommand.AddTextStyle(
-                bold = currentStyle.bold,
-                size = currentStyle.size.name,
-                underline = currentStyle.underline
-            ))
-        }
+        // Just add the text command - styles and alignment should be set separately
         commands.add(InternalPrinterCommand.AddText(text))
     }
     
     override fun addText(text: String, style: TextStyle?) {
         if (style != null) {
-            addTextStyle(style)
+            // Add the style command first
+            commands.add(InternalPrinterCommand.AddTextStyle(
+                bold = style.bold,
+                size = style.size.name,
+                underline = style.underline
+            ))
+            currentStyle = style
         }
-        addText(text)
+        // Then add the text
+        commands.add(InternalPrinterCommand.AddText(text))
     }
     
     override fun addTextStyle(style: TextStyle) {
