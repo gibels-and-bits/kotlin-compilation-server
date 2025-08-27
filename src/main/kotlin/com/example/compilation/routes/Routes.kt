@@ -8,6 +8,7 @@ import io.ktor.http.*
 import com.example.compilation.compiler.KotlinCompilerService
 import com.example.compilation.models.*
 import com.example.compilation.printer.ASCIIPrinter
+import com.example.compilation.utils.InputValidation
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -40,17 +41,26 @@ fun Routing.configureRoutes(compilerService: KotlinCompilerService) {
         try {
             val request = call.receive<CompileRequest>()
             
-            if (request.teamId.isBlank()) {
-                call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Team ID is required"))
+            // Validate and sanitize team ID
+            val teamId = InputValidation.sanitizeTeamId(request.teamId)
+            if (teamId == null) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invalid team ID format"))
                 return@post
             }
             
-            if (request.code.isBlank()) {
-                call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Interpreter code is required"))
+            // Validate interpreter code
+            val codeValidation = InputValidation.validateInterpreterCode(request.code)
+            if (!codeValidation.isValid) {
+                call.respond(HttpStatusCode.BadRequest, mapOf(
+                    "error" to (codeValidation.errorMessage ?: "Invalid code")
+                ))
                 return@post
             }
             
-            val response = compilerService.compile(request.teamId, request.code, request.teamName)
+            // Sanitize team name
+            val teamName = InputValidation.sanitizeTeamName(request.teamName)
+            
+            val response = compilerService.compile(teamId, request.code, teamName)
             
             if (response.success) {
                 call.respond(HttpStatusCode.OK, response)
@@ -62,7 +72,8 @@ fun Routing.configureRoutes(compilerService: KotlinCompilerService) {
             application.log.error("Error in /compile endpoint", e)
             call.respond(HttpStatusCode.InternalServerError, mapOf(
                 "error" to "Failed to process compilation request",
-                "details" to e.message
+                "details" to e.message,
+                "stackTrace" to e.stackTraceToString()
             ))
         }
     }
@@ -72,12 +83,14 @@ fun Routing.configureRoutes(compilerService: KotlinCompilerService) {
         try {
             val request = call.receive<ExecuteRequest>()
             
-            if (request.teamId.isBlank()) {
-                call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Team ID is required"))
+            // Validate and sanitize team ID
+            val teamId = InputValidation.sanitizeTeamId(request.teamId)
+            if (teamId == null) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invalid team ID format"))
                 return@post
             }
             
-            val response = compilerService.execute(request.teamId, request.jsonData, request.round)
+            val response = compilerService.execute(teamId, request.jsonData, request.round)
             
             // If execution succeeded and we have commands, optionally render ASCII
             if (response.success && response.commands != null) {
@@ -127,7 +140,8 @@ fun Routing.configureRoutes(compilerService: KotlinCompilerService) {
             application.log.error("Error in /execute endpoint", e)
             call.respond(HttpStatusCode.InternalServerError, mapOf(
                 "error" to "Failed to execute interpreter",
-                "details" to e.message
+                "details" to e.message,
+                "stackTrace" to e.stackTraceToString()
             ))
         }
     }
